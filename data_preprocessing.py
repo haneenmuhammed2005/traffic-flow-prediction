@@ -55,7 +55,9 @@ class TrafficDataPreprocessor:
         print(f"\nMissing values before: {df.isnull().sum().sum()}")
         
         if method == 'interpolate':
-            df = df.interpolate(method='time')
+            # Only interpolate numeric columns
+            numeric_cols = df.select_dtypes(include=['number']).columns
+            df[numeric_cols] = df[numeric_cols].interpolate(method='linear')
         elif method == 'forward_fill':
             df = df.fillna(method='ffill')
         elif method == 'backward_fill':
@@ -172,7 +174,7 @@ class TrafficDataPreprocessor:
         
         return train_df, val_df, test_df
     
-    def generate_synthetic_data(self, start_date='2023-01-01', periods=8760, freq='H'):
+    def generate_synthetic_data(self, start_date='2023-01-01', periods=8760, freq='h'):
         """
         Generate synthetic traffic data for testing
         
@@ -229,7 +231,7 @@ if __name__ == "__main__":
     df = preprocessor.generate_synthetic_data(periods=8760)
     
     # Save to CSV
-    df.to_csv('/home/claude/traffic_data_synthetic.csv', index=False)
+    df.to_csv('data/raw/traffic_data_synthetic.csv', index=False)
     print("\nSynthetic data saved to traffic_data_synthetic.csv")
     
     # Basic preprocessing

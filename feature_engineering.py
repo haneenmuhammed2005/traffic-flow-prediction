@@ -49,7 +49,7 @@ class TrafficFeatureEngineer:
         # Season (1=Winter, 2=Spring, 3=Summer, 4=Fall)
         df['season'] = df['month'].apply(lambda x: (x%12 + 3)//3)
         
-        print(f"Temporal features created: {['year', 'month', 'day', 'hour', 'day_of_week', 'is_weekend', 'season', etc.]}")
+        print("Temporal features created: year, month, day, hour, day_of_week, is_weekend, season, and more")
         
         return df
     
@@ -300,7 +300,7 @@ class TrafficFeatureEngineer:
 # Example usage
 if __name__ == "__main__":
     # Load synthetic data
-    df = pd.read_csv('/home/claude/traffic_data_synthetic.csv')
+    df = pd.read_csv('data/raw/traffic_data_synthetic.csv')
     df['date_time'] = pd.to_datetime(df['date_time'])
     
     # Create feature engineer
@@ -310,7 +310,7 @@ if __name__ == "__main__":
     df_featured = feature_engineer.create_all_features(df, target_column='traffic_volume')
     
     # Save featured data
-    df_featured.to_csv('/home/claude/traffic_data_featured.csv', index=False)
+    df_featured.to_csv('data/processed/traffic_data_featured.csv', index=False)
     print("\nFeatured data saved to traffic_data_featured.csv")
     
     # Display feature names

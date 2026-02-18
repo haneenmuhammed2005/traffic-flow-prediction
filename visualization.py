@@ -21,7 +21,7 @@ class TrafficVisualizer:
     Visualization tools for traffic flow analysis
     """
     
-    def __init__(self, save_dir='/home/claude/plots/'):
+    def __init__(self, save_dir='plots/'):
         """
         Initialize visualizer
         
@@ -321,14 +321,14 @@ if __name__ == "__main__":
     import os
     
     # Create plots directory
-    os.makedirs('/home/claude/plots', exist_ok=True)
+    os.makedirs('plots', exist_ok=True)
     
     # Load data
-    df = pd.read_csv('/home/claude/traffic_data_synthetic.csv')
+    df = pd.read_csv('data/raw/traffic_data_synthetic.csv')
     df['date_time'] = pd.to_datetime(df['date_time'])
     
     # Create visualizer
-    viz = TrafficVisualizer(save_dir='/home/claude/plots/')
+    viz = TrafficVisualizer(save_dir='plots/')
     
     # Create plots
     viz.plot_time_series(df)

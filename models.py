@@ -325,7 +325,7 @@ def evaluate_model(y_true, y_pred, model_name="Model"):
 # Example usage
 if __name__ == "__main__":
     # Load featured data
-    df = pd.read_csv('/home/claude/traffic_data_featured.csv')
+    df = pd.read_csv('data/processed/traffic_data_featured.csv')
     
     # Prepare features and target
     target_col = 'traffic_volume'
@@ -357,4 +357,4 @@ if __name__ == "__main__":
     metrics = evaluate_model(y_test, y_pred, "XGBoost")
     
     # Save model
-    model.save_model('/home/claude/traffic_model_xgboost.pkl')
+    model.save_model('models/traffic_model_xgboost.pkl')

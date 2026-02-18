@@ -46,7 +46,7 @@ def main():
     df = preprocessor.generate_synthetic_data(
         start_date='2023-01-01',
         periods=8760,  # 1 year of hourly data
-        freq='H'
+        freq='h'
     )
     
     # Save raw data

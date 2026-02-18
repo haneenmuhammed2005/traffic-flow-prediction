@@ -11,6 +11,7 @@ from data_preprocessing import TrafficDataPreprocessor
 from feature_engineering import TrafficFeatureEngineer
 import warnings
 warnings.filterwarnings('ignore')
+import os
 
 
 class TrafficPredictor:
@@ -28,25 +29,64 @@ class TrafficPredictor:
         self.model = joblib.load(model_path)
         self.feature_engineer = TrafficFeatureEngineer()
         print(f"Model loaded from: {model_path}")
+
+        # Try load saved feature columns (preferred)
+        self.feature_columns = None
+        feat_path = 'models/feature_columns.pkl'
+        if os.path.exists(feat_path):
+            try:
+                self.feature_columns = joblib.load(feat_path)
+                print(f"Loaded feature column list from: {feat_path} ({len(self.feature_columns)} features)")
+            except Exception:
+                print(f"Warning: failed to load {feat_path}")
+                self.feature_columns = None
+
+        # Fallback: try extracting feature names from fitted model
+        if self.feature_columns is None:
+            self.feature_columns = getattr(self.model, 'feature_names_in_', None)
+            if self.feature_columns is not None:
+                self.feature_columns = list(self.feature_columns)
+                print(f"Using model.feature_names_in_ ({len(self.feature_columns)} features)")
+            elif hasattr(self.model, 'booster_'):
+                try:
+                    self.feature_columns = list(self.model.booster_.feature_name())
+                    print(f"Using booster_.feature_name() ({len(self.feature_columns)} features)")
+                except Exception:
+                    self.feature_columns = None
+
+        if self.feature_columns is None:
+            print("Warning: No feature column list found. Predictions may fail if model expects specific features.")
     
     def prepare_input_data(self, df):
         """
         Prepare input data with all necessary features
-        
-        Args:
-            df: Input DataFrame with date_time and other columns
-            
+
         Returns:
-            DataFrame with engineered features
+            X: DataFrame aligned to model feature columns
+            df_featured: full featured DataFrame (before alignment)
         """
-        # Create all features
-        df_featured = self.feature_engineer.create_all_features(df, target_column='traffic_volume')
-        
-        # Get feature columns (exclude target and metadata)
-        exclude_cols = ['traffic_volume', 'date_time', 'weather_condition']
-        feature_cols = [col for col in df_featured.columns if col not in exclude_cols]
-        
-        return df_featured[feature_cols], df_featured
+        # Create all features but do NOT drop NaNs (we'll fill them)
+        df_featured = self.feature_engineer.create_all_features(df, target_column='traffic_volume', dropna=False)
+
+        # Fill NaNs created by lag/rolling with reasonable defaults (0 here)
+        df_featured = df_featured.fillna(0)
+
+        # If we have a saved feature list, align to it
+        if self.feature_columns is not None:
+            expected = list(self.feature_columns)
+            # Add any missing features as zeros
+            for f in expected:
+                if f not in df_featured.columns:
+                    df_featured[f] = 0
+            # Ensure expected order, drop extras
+            X = df_featured[expected]
+        else:
+            # Fallback to previous behavior: infer feature columns dynamically
+            exclude_cols = ['traffic_volume', 'date_time', 'weather_condition']
+            feature_cols = [col for col in df_featured.columns if col not in exclude_cols]
+            X = df_featured[feature_cols]
+
+        return X, df_featured
     
     def predict_single_timestamp(self, timestamp, temperature=20, humidity=50, weather='Clear'):
         """
@@ -81,7 +121,7 @@ class TrafficPredictor:
         
         return max(0, prediction)  # Ensure non-negative
     
-    def predict_date_range(self, start_date, end_date, freq='H'):
+    def predict_date_range(self, start_date, end_date, freq='h'):
         """
         Predict traffic for a date range
         
@@ -135,7 +175,7 @@ class TrafficPredictor:
             DataFrame with predictions
         """
         end_time = start_time + timedelta(hours=n_hours)
-        return self.predict_date_range(start_time, end_time, freq='H')
+        return self.predict_date_range(start_time, end_time, freq='h')
     
     def predict_rush_hours(self, date):
         """
@@ -159,8 +199,8 @@ class TrafficPredictor:
         evening_end = date.replace(hour=19, minute=0, second=0)
         
         # Predict both periods
-        morning_pred = self.predict_date_range(morning_start, morning_end, freq='H')
-        evening_pred = self.predict_date_range(evening_start, evening_end, freq='H')
+        morning_pred = self.predict_date_range(morning_start, morning_end, freq='h')
+        evening_pred = self.predict_date_range(evening_start, evening_end, freq='h')
         
         # Combine
         rush_hour_pred = pd.concat([morning_pred, evening_pred]).reset_index(drop=True)
@@ -252,7 +292,7 @@ def demo_predictions():
     start_date = datetime(2024, 3, 18)  # Monday
     end_date = start_date + timedelta(days=7)
     
-    weekly_pred = predictor.predict_date_range(start_date, end_date, freq='H')
+    weekly_pred = predictor.predict_date_range(start_date, end_date, freq='h')
     
     # Daily averages
     weekly_pred['date'] = pd.to_datetime(weekly_pred['date_time']).dt.date
@@ -265,6 +305,11 @@ def demo_predictions():
     # Save weekly predictions
     weekly_pred.to_csv('results/predictions_weekly.csv', index=False)
     print("\nWeekly predictions saved to: results/predictions_weekly.csv")
+    
+    # Save feature column list for inference alignment
+    os.makedirs('models', exist_ok=True)
+    joblib.dump(feature_cols, 'models/feature_columns.pkl')
+    print(f"Saved feature column list to: models/feature_columns.pkl ({len(feature_cols)} features)")
     
     print("\n" + "="*80)
     print("DEMO COMPLETE!")
